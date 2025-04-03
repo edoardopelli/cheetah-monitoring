@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
@@ -21,6 +22,8 @@ public class Alert {
     
     private String hostname;
     private String ip;          // Aggiunto per differenziare per ip
-    private String metricType;  // e.g., "CPU", "Disk", "RAM"
+    private String metricType;  // e.g., "CPU", "Disk", "RAM", "PORT"
+    private Integer port;
+    @Indexed(expireAfter = "24h", name = "alert_expiration_idx")
     private long timestamp;     // Time (in millis) when the alert was sent
 }

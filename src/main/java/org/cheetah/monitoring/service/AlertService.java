@@ -1,7 +1,5 @@
 package org.cheetah.monitoring.service;
 
-import java.time.Instant;
-
 import org.cheetah.monitoring.model.Alert;
 import org.cheetah.monitoring.model.Metrics;
 import org.cheetah.monitoring.repository.AlertRepository;
@@ -10,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+
+import java.time.Instant;
 
 @Service
 public class AlertService {
@@ -29,9 +29,10 @@ public class AlertService {
     }
 
     /**
-     * Checks each metric in the provided Metrics object and sends an alert via Telegram if a threshold is exceeded.
-     * For each ip-metricType pair, only a new alert is sent if none has been sent in the last 24 hours.
-     * @param metrics Metrics data to check.
+     * Checks each metric (CPU, Disk, RAM) and sends an alert via Telegram if a threshold is exceeded.
+     * For each IP and metric type, an alert is sent only if no alert has been sent in the last 24 hours.
+     *
+     * @param metrics The metrics data to check.
      */
     public void checkAndSendAlerts(Metrics metrics) {
         if (metrics.getCpuUsage() >= 95.0) {
@@ -45,17 +46,35 @@ public class AlertService {
         }
     }
 
+    /**
+     * Checks and sends an alert for the specified metric type if the threshold is exceeded,
+     * ensuring that no alert has been sent in the last 24 hours for the same IP and metric type.
+     *
+     * @param metricType The metric type (e.g., "CPU", "Disk", "RAM").
+     * @param metrics    The metrics data.
+     */
     private void checkAndSendAlertForMetric(String metricType, Metrics metrics) {
-        // Ottieni l'ultimo alert per la coppia ip-metricType
-        Alert lastAlert = alertRepository.findTopByIpAndMetricTypeOrderByTimestampDesc(metrics.getIp(), metricType);
+        // Calculate timestamp for 24 hours ago
         long twentyFourHoursAgo = Instant.now().minusSeconds(24 * 3600).toEpochMilli();
+
+        // Retrieve the most recent alert for the given IP and metric type
+        Alert lastAlert = alertRepository.findTopByIpAndMetricTypeOrderByTimestampDesc(metrics.getIp(), metricType);
         if (lastAlert != null && lastAlert.getTimestamp() > twentyFourHoursAgo) {
-            // Se l'ultimo alert è stato inviato meno di 24 ore fa, non inviare un nuovo alert
+            // An alert has already been sent within the last 24 hours; do not send a new one.
             return;
         }
-        // Invia l'alert via Telegram
-        sendTelegramAlert(metricType, metrics);
-        // Registra l'invio dell'alert nella collection "alerts"
+
+        // Get the metric value for the given metric type
+        double metricValue = getMetricValue(metricType, metrics);
+
+        // Compose the alert message
+        String message = String.format("Alert! %s (%s) has high %s usage: %.2f%%",
+                metrics.getHostname(), metrics.getIp(), metricType, metricValue);
+
+        // Send the alert via Telegram
+        sendCustomTelegramAlert(metricType, message);
+
+        // Record the alert in the database
         Alert alertRecord = Alert.builder()
                 .hostname(metrics.getHostname())
                 .ip(metrics.getIp())
@@ -66,31 +85,11 @@ public class AlertService {
     }
 
     /**
-     * Sends an alert message via Telegram for the specified metric.
-     * @param metricType The type of metric ("CPU", "Disk", or "RAM").
-     * @param metrics The metrics data.
-     */
-    private void sendTelegramAlert(String metricType, Metrics metrics) {
-        String message = String.format("Alert! %s (%s) has high %s usage: %.2f%%",
-                metrics.getHostname(), metrics.getIp(), metricType, getMetricValue(metricType, metrics));
-        String url = String.format("https://api.telegram.org/bot%s/sendMessage", telegramBotToken);
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("chat_id", telegramChatId);
-        params.add("text", message);
-
-        try {
-            restTemplate.postForObject(url, params, String.class);
-        } catch (Exception e) {
-            System.out.println("Error sending telegram alert: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Returns the value of the specified metric.
-     * @param metricType The type of metric ("CPU", "Disk", or "RAM").
-     * @param metrics The metrics data.
-     * @return The percentage value for the metric.
+     * Returns the value of the specified metric from the metrics data.
+     *
+     * @param metricType The metric type (e.g., "CPU", "Disk", "RAM").
+     * @param metrics    The metrics data.
+     * @return The metric value.
      */
     private double getMetricValue(String metricType, Metrics metrics) {
         switch (metricType) {
@@ -102,6 +101,24 @@ public class AlertService {
                 return metrics.getRamUsage();
             default:
                 return 0.0;
+        }
+    }
+
+    /**
+     * Sends a custom Telegram alert with the specified message.
+     *
+     * @param metricType The type of metric for which the alert is being sent.
+     * @param message    The alert message.
+     */
+    public void sendCustomTelegramAlert(String metricType, String message) {
+        String url = String.format("https://api.telegram.org/bot%s/sendMessage", telegramBotToken);
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("chat_id", telegramChatId);
+        params.add("text", message);
+        try {
+            restTemplate.postForObject(url, params, String.class);
+        } catch (Exception e) {
+            System.out.println("Error sending telegram alert: " + e.getMessage());
         }
     }
 }
