@@ -7,6 +7,7 @@ on:
 
 jobs:
   release:
+    if: "!contains(github.event.head_commit.message, '[maven-release-plugin]')"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -28,6 +29,24 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
   
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p $HOME/.m2
+            cat > $HOME/.m2/settings.xml <<EOF
+            <settings>
+              <servers>
+                <server>
+                  <id>github</id>
+                  <username>edoardopelli</username>
+                  <password>${GITHUB_TOKEN}</password>
+                </server>
+              </servers>
+            </settings>
+            EOF
+          env:
+            GITHUB_TOKEN: ${{ secrets.TOKEN }}
+  
+      
       - name: Configure Git user
         run: |
           git config --global user.email "edoardo.pelli@gmail.com"
