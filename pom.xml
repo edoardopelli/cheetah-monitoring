@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>org.cheetah</groupId>
 	<artifactId>monitoring</artifactId>
-	<version>1.0.3-SNAPSHOT</version>
+	<version>1.0.9-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>cheetah-monitoring</name>
 	<description>Server per la raccolta delle metriche da host esterni</description>
