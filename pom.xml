@@ -10,7 +10,7 @@
 	<groupId>org.cheetah</groupId>
 	<artifactId>monitoring</artifactId>
 	<version>1.0.16-SNAPSHOT</version>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 	<name>cheetah-monitoring</name>
 	<description>Server per la raccolta delle metriche da host esterni</description>
 	<url />
