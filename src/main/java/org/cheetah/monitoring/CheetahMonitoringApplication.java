@@ -8,7 +8,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class CheetahMonitoringApplication {
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
+		if(System.getenv("TELEGRAM_BOT_TOKEN")==null) {
+			throw new Exception("Environment TELEGRAM_BOT_TOKEN is missing");
+		}
+		if(System.getenv("TELEGRAM_CHAT_ID")==null) {
+			throw new Exception("Environment TELEGRAM_CHAT_ID is missing");
+		}
 		SpringApplication.run(CheetahMonitoringApplication.class, args);
 	}
 
