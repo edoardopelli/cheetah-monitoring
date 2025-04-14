@@ -60,9 +60,10 @@ jobs:
         id: vars
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-              TAG="${GITHUB_REF#refs/tags/}"
+            TAG="${GITHUB_REF#refs/tags/}"
           else
-              TAG="latest"
+            echo "Errore: il workflow deve essere attivato da un push di tag."
+            exit 1
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
