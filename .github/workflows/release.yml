@@ -17,13 +17,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install xmllint
-        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+      - name: Install xmlstarlet
+        run: sudo apt-get update && sudo apt-get install -y xmlstarlet
 
       - name: Extract release version from pom.xml (excluding parent/version)
         id: extract-version
         run: |
-          # Utilizza xmllint per estrarre la versione principale del progetto, che si trova in /project/version.
+          # Utilizza xmlstarlet per estrarre la versione principale del progetto, che si trova in /project/version.
           # In questo modo si esclude automaticamente la versione definita all'interno di <parent>.
           RELEASE_VERSION=$(xmlstarlet sel -t -v "/_:project/_:version" pom.xml | sed 's/-SNAPSHOT//')
           if [ -z "$RELEASE_VERSION" ]; then
