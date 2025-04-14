@@ -22,6 +22,7 @@ jobs:
 
       - name: Extract and print version from pom.xml
         run: |
+          ls -la
           VERSION=$(xmllint --xpath "string(/project/version)" pom.xml)
           if [ -z "$VERSION" ]; then
             echo "ERROR: Version not found or not in expected format."
