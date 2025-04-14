@@ -9,6 +9,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class CheetahMonitoringApplication {
 
 	public static void main(String[] args) throws Exception {
+		if(System.getenv("MONGODB_URI")==null) {
+			throw new Exception("Environment MONGODB_URI is missing");
+		}
 		if(System.getenv("TELEGRAM_BOT_TOKEN")==null) {
 			throw new Exception("Environment TELEGRAM_BOT_TOKEN is missing");
 		}

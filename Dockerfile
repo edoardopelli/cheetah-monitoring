@@ -4,7 +4,6 @@ RUN yum update && yum install -y  net-tools telnet
 
 WORKDIR /app
 
-ENV MONGODB_URI <your mongodb connection string>
 
 COPY target/monitoring*.jar monitoring.jar
 
