@@ -17,17 +17,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Extract release version from pom.xml
+      - name: Extract release version from pom.xml (excluding parent/version)
         id: extract-version
         run: |
-          # Estrae la prima occorrenza del tag <version> e rimuove il suffisso -SNAPSHOT
-          RELEASE_VERSION=$(grep -m 1 '<version>' pom.xml | sed -n 's:.*<version>\(.*\)-SNAPSHOT</version>.*:\1:p')
+          # Utilizza xmllint per estrarre la versione principale del progetto, che si trova in /project/version.
+          # In questo modo si esclude automaticamente la versione definita all'interno di <parent>.
+          RELEASE_VERSION=$(xmllint --xpath "string(/project/version)" pom.xml | sed 's/-SNAPSHOT//')
           if [ -z "$RELEASE_VERSION" ]; then
               echo "ERROR: Version not found or not in expected format."
               exit 1
           fi
           echo "Release version is $RELEASE_VERSION"
-          # Esporta la variabile per renderla globale nei seguenti step
+          # Esporta la variabile in ambiente globale per gli step successivi
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
 
 
