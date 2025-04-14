@@ -82,5 +82,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            edoardoppelli/cheetah-monitoring:${{ steps.vars.outputs.tag }}
-            edoardoppelli/cheetah-monitoring::latest
+            edoardopelli/cheetah-monitoring:${{ steps.vars.outputs.tag }}
+            edoardopelli/cheetah-monitoring:latest
