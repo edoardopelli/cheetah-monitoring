@@ -1,4 +1,4 @@
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:21.0.6-al2023-headful
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21.0.7-al2023-headful
 
 RUN yum update && yum install -y  net-tools telnet
 

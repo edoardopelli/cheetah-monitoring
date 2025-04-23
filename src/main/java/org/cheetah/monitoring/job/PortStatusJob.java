@@ -1,5 +1,13 @@
 package org.cheetah.monitoring.job;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.time.Instant;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.cheetah.monitoring.model.AgentInfo;
 import org.cheetah.monitoring.model.Alert;
 import org.cheetah.monitoring.model.JobLock;
@@ -10,13 +18,6 @@ import org.cheetah.monitoring.service.AlertService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Component
 public class PortStatusJob {
@@ -86,7 +87,7 @@ public class PortStatusJob {
                         alertService.sendCustomTelegramAlert("AGENT", message);
                         Alert alert = Alert.builder()
                                 .hostname(hostname)
-                                .ip(ip)
+                                .ip(ip).date(new Date())
                                 .metricType("AGENT")
                                 .port(null) // Not applicable for agent-down alert.
                                 .timestamp(Instant.now().toEpochMilli())

@@ -1,15 +1,18 @@
 package org.cheetah.monitoring.service;
 
+import java.time.Instant;
+import java.util.Date;
+
 import org.cheetah.monitoring.model.Alert;
 import org.cheetah.monitoring.model.Metrics;
+import org.cheetah.monitoring.model.Threshold;
 import org.cheetah.monitoring.repository.AlertRepository;
+import org.cheetah.monitoring.repository.ThresholdRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-
-import java.time.Instant;
 
 @Service
 public class AlertService {
@@ -24,6 +27,8 @@ public class AlertService {
 
     private final AlertRepository alertRepository;
 
+	private ThresholdRepository thresholdRepository;
+
     public AlertService(AlertRepository alertRepository) {
         this.alertRepository = alertRepository;
     }
@@ -35,13 +40,22 @@ public class AlertService {
      * @param metrics The metrics data to check.
      */
     public void checkAndSendAlerts(Metrics metrics) {
-        if (metrics.getCpuUsage() >= 95.0) {
+        // Retrieve thresholds from database. If not present, use defaults.
+        Threshold cpuThreshold = thresholdRepository.findByMetricType("CPU");
+        double cpuLimit = cpuThreshold != null ? cpuThreshold.getThresholdValue() : 95.0;
+        if (metrics.getCpuUsage() >= cpuLimit) {
             checkAndSendAlertForMetric("CPU", metrics);
         }
-        if (metrics.getDiskUsage() >= 85.0) {
+
+        Threshold diskThreshold = thresholdRepository.findByMetricType("Disk");
+        double diskLimit = diskThreshold != null ? diskThreshold.getThresholdValue() : 85.0;
+        if (metrics.getDiskUsage() >= diskLimit) {
             checkAndSendAlertForMetric("Disk", metrics);
         }
-        if (metrics.getRamUsage() >= 80.0) {
+
+        Threshold ramThreshold = thresholdRepository.findByMetricType("RAM");
+        double ramLimit = ramThreshold != null ? ramThreshold.getThresholdValue() : 80.0;
+        if (metrics.getRamUsage() >= ramLimit) {
             checkAndSendAlertForMetric("RAM", metrics);
         }
     }
@@ -78,6 +92,7 @@ public class AlertService {
         Alert alertRecord = Alert.builder()
                 .hostname(metrics.getHostname())
                 .ip(metrics.getIp())
+                .date(new Date())
                 .metricType(metricType)
                 .timestamp(Instant.now().toEpochMilli())
                 .build();

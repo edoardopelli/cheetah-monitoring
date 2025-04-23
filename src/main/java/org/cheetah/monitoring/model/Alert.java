@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Date;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -26,4 +29,5 @@ public class Alert {
     private Integer port;
     @Indexed(expireAfter = "24h", name = "alert_expiration_idx")
     private long timestamp;     // Time (in millis) when the alert was sent
+    private Date date;
 }
