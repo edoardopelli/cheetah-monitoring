@@ -1,7 +1,7 @@
-package org.cheetah.monitoring.service;
+package org.cheetah.monitoring.services;
 
 import org.cheetah.monitoring.model.AgentInfo;
-import org.cheetah.monitoring.repository.AgentInfoRepository;
+import org.cheetah.monitoring.repositories.AgentInfoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

@@ -1,4 +1,4 @@
-package org.cheetah.monitoring.service;
+package org.cheetah.monitoring.services;
 
 import org.springframework.stereotype.Service;
 

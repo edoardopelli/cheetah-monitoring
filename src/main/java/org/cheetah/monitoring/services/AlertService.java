@@ -1,4 +1,4 @@
-package org.cheetah.monitoring.service;
+package org.cheetah.monitoring.services;
 
 import java.time.Instant;
 import java.util.Date;
@@ -6,8 +6,8 @@ import java.util.Date;
 import org.cheetah.monitoring.model.Alert;
 import org.cheetah.monitoring.model.Metrics;
 import org.cheetah.monitoring.model.Threshold;
-import org.cheetah.monitoring.repository.AlertRepository;
-import org.cheetah.monitoring.repository.ThresholdRepository;
+import org.cheetah.monitoring.repositories.AlertRepository;
+import org.cheetah.monitoring.repositories.ThresholdRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;

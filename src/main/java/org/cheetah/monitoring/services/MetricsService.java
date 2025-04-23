@@ -1,7 +1,7 @@
-package org.cheetah.monitoring.service;
+package org.cheetah.monitoring.services;
 
 import org.cheetah.monitoring.model.Metrics;
-import org.cheetah.monitoring.repository.MetricsRepository;
+import org.cheetah.monitoring.repositories.MetricsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

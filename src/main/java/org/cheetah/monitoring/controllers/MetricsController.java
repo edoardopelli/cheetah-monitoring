@@ -1,7 +1,7 @@
 package org.cheetah.monitoring.controllers;
 
 import org.cheetah.monitoring.model.Metrics;
-import org.cheetah.monitoring.service.MetricsService;
+import org.cheetah.monitoring.services.MetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

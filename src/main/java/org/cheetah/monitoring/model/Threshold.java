@@ -9,17 +9,20 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Represents a lock for a scheduled job.
+ * Represents a threshold configuration for a specific metric.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Document(collection = "jobLocks")
-public class JobLock {
+@Document(collection = "thresholds")
+public class Threshold {
     @Id
     private String id;
-    private String jobName;   // e.g., "PortStatusJob"
-    private String lockId;    // Generated UUID
-    private long timestamp;   // Time (in millis) when the lock was created
+    
+    // For example: "CPU", "Disk", "RAM", "PORT"
+    private String metricType;
+    
+    // The threshold value (percentage for CPU, Disk, RAM, etc.)
+    private double thresholdValue;
 }

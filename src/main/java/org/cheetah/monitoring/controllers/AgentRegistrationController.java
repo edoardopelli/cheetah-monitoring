@@ -1,7 +1,7 @@
 package org.cheetah.monitoring.controllers;
 
 import org.cheetah.monitoring.model.AgentInfo;
-import org.cheetah.monitoring.service.AgentRegistrationService;
+import org.cheetah.monitoring.services.AgentRegistrationService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
