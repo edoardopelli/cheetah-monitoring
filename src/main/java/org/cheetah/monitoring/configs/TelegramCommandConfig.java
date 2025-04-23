@@ -23,7 +23,10 @@ public class TelegramCommandConfig {
 
     @Value("${telegram.commands.help.description}")
     private String helpDesc;
-
+    
+    @Value("${telegram.commands.list.description}")
+    private String listDesc;
+    
     private final RestTemplate rest = new RestTemplate();
 
     /**
@@ -35,8 +38,9 @@ public class TelegramCommandConfig {
         String body = String.format(
             "{\"commands\":[{\"command\":\"status\",\"description\":\"%s\"},"
           + "{\"command\":\"ports\",\"description\":\"%s\"},"
-          + "{\"command\":\"help\",\"description\":\"%s\"}]}",
-            statusDesc, portsDesc, helpDesc
+          + "{\"command\":\"help\",\"description\":\"%s\"}]}"
+          + "{\"command\":\"list\",  \"description\":\"%s\"},",
+            statusDesc, portsDesc, helpDesc,listDesc
         );
         Object obj = rest.postForObject(url, body, String.class);
         System.out.println(obj);

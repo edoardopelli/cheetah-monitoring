@@ -27,10 +27,11 @@ public class AlertService {
 
     private final AlertRepository alertRepository;
 
-	private ThresholdRepository thresholdRepository;
+	private final ThresholdRepository thresholdRepository;
 
     public AlertService(AlertRepository alertRepository) {
         this.alertRepository = alertRepository;
+		this.thresholdRepository = null;
     }
 
     /**

@@ -1,5 +1,9 @@
 package org.cheetah.monitoring.services;
 
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.cheetah.monitoring.model.AgentInfo;
 import org.cheetah.monitoring.model.Metrics;
 import org.cheetah.monitoring.repositories.AgentInfoRepository;
@@ -53,6 +57,9 @@ public class TelegramBotService {
                 case "/ports":
                     response = handlePorts(arg);
                     break;
+                case "/list":
+                    response = handleList();
+                    break;
                 case "/help":
                     response = getHelp();
                     break;
@@ -61,6 +68,20 @@ public class TelegramBotService {
             }
             sendMessage(chatId, response);
         }
+    }
+    
+    /**
+     * Handles the /list command, returning all monitored hostnames.
+     */
+    private String handleList() {
+        List<AgentInfo> agents = agentRepo.findAll();
+        if (agents.isEmpty()) {
+            return "No agents registered.";
+        }
+        String hosts = agents.stream()
+            .map(AgentInfo::getHostname)
+            .collect(Collectors.joining("\n"));
+        return "Monitored hosts:\n" + hosts;
     }
 
     /**
@@ -74,7 +95,7 @@ public class TelegramBotService {
         if (m == null) return "No metrics found for host: " + hostname;
         return String.format(
           "Status for %s:\nCPU: %.2f%%\nDisk: %.2f%%\nRAM: %.2f%%\nTimestamp: %d",
-          hostname, m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage(), m.getTimestamp());
+          hostname, m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage(), new Date(m.getTimestamp()));
     }
 
     /**
@@ -97,7 +118,9 @@ public class TelegramBotService {
             "Available commands:",
             "/status <hostname> - get latest metrics",
             "/ports <hostname>  - list open ports",
+            "/list              - list all monitored hosts",       
             "/help              - this help message"
+            
         );
     }
 

@@ -161,6 +161,72 @@ public class ServerApplication {
 }
 ```
 
+## Telegram Bot Configuration
+
+Follow these steps to configure and verify your Telegram bot integration:
+
+### 1. Create a Bot with BotFather
+
+1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather).  
+2. Send `/newbot` and follow prompts to choose:
+   - **Bot name** (e.g. “CheetahMonitorBot”)
+   - **Username** (must end in “bot”, e.g. “CheetahMonitorBot”)
+3. BotFather will reply with a **bot token**. Copy this—you’ll need it below.
+
+### 2. Add Your Bot Token to Application Properties
+
+In your `application.properties` (or `application.yml`), add:
+
+```properties
+# Telegram bot token from BotFather
+telegram.bot.token=YOUR_BOT_TOKEN_HERE
+
+# Telegram chat ID to receive alerts
+telegram.chat.id=YOUR_CHAT_ID_HERE
+
+# (Optional) Descriptions for slash commands
+telegram.commands.status.description=Get current metrics for a host.
+telegram.commands.ports.description=Get open ports for a host.
+telegram.commands.help.description=Show help and usage.
+
+Tip: To find your Chat ID, send a message to your bot, then visit:
+
+https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+
+Look for "chat":{"id":...} in the JSON response.
+
+3. Register Bot Commands on Startup
+
+Our code uses setMyCommands to register slash commands (/status, /ports, /help) automatically at application startup. No extra configuration is required.
+
+4. Expose a Webhook Endpoint
+
+You need to expose a public URL for Telegram to POST updates. In application.properties add:
+
+# Path where your app listens for Telegram updates
+telegram.webhook.path=/api/telegram/webhook
+
+Ensure your server is reachable at:
+
+https://YOUR_PUBLIC_DOMAIN/api/telegram/webhook
+
+Then register the webhook with BotFather or via curl:
+
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+     -d "url=https://YOUR_PUBLIC_DOMAIN/api/telegram/webhook"
+
+5. Verify Your Bot
+	1.	Start your application.
+	2.	Open Telegram and send one of your commands:
+	•	/status <hostname>
+	•	/ports <hostname>
+	•	/help
+	3.	The bot should reply with the requested information.
+
+⸻
+
+That’s it! Your Telegram bot is now configured to receive slash commands and forward them to your Spring Boot application for processing.
+
 ---
 
 ## Conclusion

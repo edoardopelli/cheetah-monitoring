@@ -8,11 +8,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Receives Telegram webhook updates and delegates to bot service.
  */
 @RestController
 @RequestMapping("/api/telegram")
+@Slf4j
 public class TelegramWebhookController {
 
     private final TelegramBotService botService;
@@ -26,6 +29,9 @@ public class TelegramWebhookController {
      */
     @PostMapping("/webhook")
     public ResponseEntity<Void> onUpdateReceived(@RequestBody Update update) {
+    	if(log.isDebugEnabled()) {
+    		log.debug("{}", update);
+    	}
         botService.handleUpdate(update);
         return ResponseEntity.ok().build();
     }
