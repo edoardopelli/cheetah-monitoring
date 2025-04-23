@@ -94,7 +94,7 @@ public class TelegramBotService {
         Metrics m = metricsRepo.findTopByHostnameOrderByTimestampDesc(hostname);
         if (m == null) return "No metrics found for host: " + hostname;
         return String.format(
-          "Status for %s:\nCPU: %.2f%%\nDisk: %.2f%%\nRAM: %.2f%%\nTimestamp: %d",
+          "Status for %s:\nCPU: %.2f%%\nDisk: %.2f%%\nRAM: %.2f%%\nTimestamp: %tc",
           hostname, m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage(), new Date(m.getTimestamp()));
     }
 
