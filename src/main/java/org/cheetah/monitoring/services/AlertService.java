@@ -29,9 +29,9 @@ public class AlertService {
 
 	private final ThresholdRepository thresholdRepository;
 
-    public AlertService(AlertRepository alertRepository) {
+    public AlertService(AlertRepository alertRepository,ThresholdRepository thresholdRepository) {
         this.alertRepository = alertRepository;
-		this.thresholdRepository = null;
+		this.thresholdRepository = thresholdRepository;
     }
 
     /**
