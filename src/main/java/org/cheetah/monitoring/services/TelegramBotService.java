@@ -85,18 +85,37 @@ public class TelegramBotService {
     }
 
     /**
-     * Handles the /status command, returning the latest metrics for a given hostname.
+     * Handles the /status command.
+     * If argument is '*', returns status for all hosts, otherwise for specific host.
      */
     private String handleStatus(String hostname) {
         if (hostname.isBlank()) {
-            return "Usage: /status <hostname>";
+            return "Usage: /status <hostname> or /status *";
+        }
+        if ("*".equals(hostname)) {
+            List<AgentInfo> agents = agentRepo.findAll();
+            if (agents.isEmpty()) {
+                return "No agents registered.";
+            }
+            return agents.stream()
+                .map(agent -> {
+                    Metrics m = metricsRepo.findTopByHostnameOrderByTimestampDesc(agent.getHostname());
+                    if (m == null) {
+                        return agent.getHostname() + ": no metrics available";
+                    }
+                    return String.format(
+                        "%s - CPU: %.2f%%, Disk: %.2f%%, RAM: %.2f%%",
+                        m.getHostname(), m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage());
+                })
+                .collect(Collectors.joining("\n"));
         }
         Metrics m = metricsRepo.findTopByHostnameOrderByTimestampDesc(hostname);
         if (m == null) return "No metrics found for host: " + hostname;
         return String.format(
-          "Status for %s:\nCPU: %.2f%%\nDisk: %.2f%%\nRAM: %.2f%%\nTimestamp: %tc",
-          hostname, m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage(), new Date(m.getTimestamp()));
+          "Status for %s:\nCPU: %.2f%%\nDisk: %.2f%%\nRAM: %.2f%%\nTimestamp: %d",
+          m.getHostname(), m.getCpuUsage(), m.getDiskUsage(), m.getRamUsage(), m.getTimestamp());
     }
+
 
     /**
      * Handles the /ports command, listing open ports for a given hostname.
