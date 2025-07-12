@@ -9,10 +9,15 @@ import org.cheetah.monitoring.model.Threshold;
 import org.cheetah.monitoring.repositories.AlertRepository;
 import org.cheetah.monitoring.repositories.ThresholdRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AlertService {
@@ -61,6 +66,9 @@ public class AlertService {
         }
     }
 
+    
+    
+    
     /**
      * Checks and sends an alert for the specified metric type if the threshold is exceeded,
      * ensuring that no alert has been sent in the last 24 hours for the same IP and metric type.
@@ -135,6 +143,31 @@ public class AlertService {
             restTemplate.postForObject(url, params, String.class);
         } catch (Exception e) {
             System.out.println("Error sending telegram alert: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Sends a file (log) as a document via Telegram.
+     */
+    public void sendTelegramDocument(MultipartFile file) {
+        try {
+            String url = String.format("https://api.telegram.org/bot%s/sendDocument", telegramBotToken);
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("chat_id", telegramChatId);
+            byte[] bytes = file.getBytes();
+            ByteArrayResource resource = new ByteArrayResource(bytes) {
+                @Override public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            };
+            body.add("document", resource);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            restTemplate.postForEntity(url, requestEntity, String.class);
+        } catch (Exception e) {
+            System.err.println("Error sending document: " + e.getMessage());
         }
     }
 }

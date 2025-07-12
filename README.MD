@@ -1,6 +1,6 @@
 # Monitoring Server Documentation
 
-This document describes the functionality and architecture of the monitoring server, which is responsible for receiving data from remote agents, storing and processing metrics, sending alerts via Telegram, and performing additional health checks on registered agents.
+This document describes the functionality and architecture of the monitoring server, which is responsible for receiving data from remote agents, storing and processing metrics, sending alerts via Telegram, performing additional health checks on registered agents, and exposing a flexible API for external custom alerts.
 
 ---
 
@@ -10,241 +10,196 @@ The server is implemented as a Spring Boot application and uses MongoDB as its d
 
 ### 1. Agent Registration
 
-Agents register themselves by sending their information (hostname, IP, list of open ports, timestamp, and the port they are listening on) to the endpoint `/api/agent/register`.
+Agents register themselves by sending their information to the endpoint `/api/agent/register`.
 
-- **Data Storage:** The information is stored in the `agents` collection. If an agent with the same IP and hostname already exists, the record is updated.
+- **Data Storage:**  
+  The registration payload includes the following attributes and is stored in the `agents` collection. If an agent with the same IP and hostname already exists, the record is updated.  
+  - **Hostname**  
+  - **IP Address**  
+  - **List of Open Ports** (provided via the `PORTS` environment variable or determined by scanning)  
+  - **Timestamp**  
+  - **AgentPort** – the port on which the agent is listening  
+  *Note: The server manages the agent’s status (“UP” or “DOWN”).*
 
 ### 2. Metrics Reception
 
-Agents send system metrics (hostname, IP, timestamp, CPU usage, disk usage, and RAM usage) to the endpoint `/api/metrics`.
+Agents periodically send system metrics to the endpoint `/api/metrics`.
 
-- **Data Storage:** Metrics are stored in the `metrics` collection within the `telemetrydb` database.
-- **Alert Checking:** After saving, the server checks if any metric exceeds a critical threshold (CPU ≥ 95%, Disk ≥ 85%, RAM ≥ 80%). If a threshold is breached, an alert is sent via Telegram and recorded in the `alerts` collection. To avoid duplicate notifications, for each IP–metricType combination an alert is sent at most once every 24 hours.
+- **Data Storage:**  
+  Metrics (hostname, IP, timestamp, CPU usage, disk usage, and RAM usage) are stored in the `metrics` collection within the `telemetrydb` database.  
+- **Alert Checking:**  
+  After saving, the server compares each metric against thresholds. If a threshold is exceeded, an alert is sent via Telegram and recorded in the `alerts` collection.  
+  Duplicate notifications are avoided – for each IP–metricType combination, alerts are sent at most once every 24 hours.
 
-### 3. Scheduled Port Status Check
+### 3. Dynamic Threshold Management
 
-A scheduled job (`PortStatusJob`) runs periodically (every 5 minutes) to verify that the ports reported by agents are still active.
+Thresholds for critical metrics (e.g., CPU, Disk, RAM, and optionally PORT) are stored in a dedicated collection named `thresholds`. These thresholds are loaded dynamically so that changes in thresholds can be applied without modifying code.
 
-- **Port Verification:** For each agent, the job iterates over the list of open ports and attempts a TCP connection to check if the port is up.
-- **Alerting for Port Down:** If a port is not reachable, the job checks the `alerts` collection to determine if an alert for that IP, metric type "PORT", and port number has been sent in the last 24 hours. If not, an alert is sent via Telegram and recorded.
+- **Default Thresholds:** If a threshold is not found in the database, default values are used:  
+  - **CPU:** 95%  
+  - **Disk:** 85%  
+  - **RAM:** 80%  
+- **Threshold Management API:**  
+  You can manage thresholds via REST endpoints (see below).
+
+### 4. Scheduled Port and Agent Status Check
+
+A scheduled job (`PortStatusJob`) runs every 5 minutes to verify agent health:
+
+- **Port Verification:**  
+  For each agent, the job iterates through the list of open ports and uses a TCP connection attempt to verify if the port is reachable. If a port is down and no alert (metric type “PORT”) has been sent in the last 24 hours for that IP and port, an alert is sent via Telegram and recorded.  
+- **Agent Reachability:**  
+  The job also verifies if the agent is reachable on its `agentPort`. If not, the agent’s status is updated to “DOWN” and an “AGENT” alert is sent (once every 24 hours for a given issue).  
 - **Lock Mechanism:**  
-  To prevent concurrent or redundant executions, a lock is implemented using a dedicated collection (`jobLocks`).  
-  - A static final UUID (`JOB_UUID`) is generated when the server instance starts.  
-  - At the beginning of the job, the job checks for the presence of a lock with the `JOB_UUID`. If the lock exists, the job skips execution.  
-  - If not, it creates the lock, runs the port verification, and at the end of the job, deletes the lock.  
-  This ensures the job runs only once per cycle per server instance.
+  To prevent concurrent or redundant executions, the job uses a persistent lock stored in the `jobLocks` collection with a static UUID. Only one instance of the job runs per cycle.
+
+### 5. Test Bot API
+
+- **Endpoint:** `/api/bottest`  
+- **Purpose:**  
+  Allows you to send a test message via the Telegram bot to verify connectivity and configuration.  
+- **Method:** GET  
+- **Usage Example:**  
+  `GET /api/bottest?message=Hello+World`
+
+### 6. Threshold Management API
+
+- `GET /api/thresholds` — Retrieve all threshold configurations.  
+- `GET /api/thresholds/{metricType}` — Retrieve a threshold for a specific metric.  
+- `POST /api/thresholds` — Create a new threshold configuration.  
+- `PUT /api/thresholds/{metricType}` — Update an existing threshold configuration.  
+- `DELETE /api/thresholds/{metricType}` — Delete a threshold configuration.
+
+### 7. External Custom Alerts API
+
+Allows external systems to send custom alerts to Telegram using an API key:
+
+- **Generate API Key**  
+  - **Endpoint:** `POST /api/external/apikey`  
+  - **Request Body:**  
+    ```json
+    { "appName": "myBackupJob" }
+    ```  
+  - **Response:**  
+    ```json
+    {
+      "id": "...",
+      "appName": "myBackupJob",
+      "apiKey": "...",
+      "createdAt": 168...,  
+      "createdAtHuman": "2025-07-12 14:23:10"
+    }
+    ```
+- **Send Custom Alert**  
+  - **Endpoint:** `POST /api/external/alert`  
+  - **Request Body:**  
+    ```json
+    {
+      "appName": "myBackupJob",
+      "apiKey": "...",
+      "executionDate": "2025-07-12T02:00:00Z",
+      "application": "DatabaseBackup",
+      "log": "Backup completed successfully"
+    }
+    ```  
+  - **Behavior:**  
+    - Validates `appName` + `apiKey`.  
+    - Sends a Telegram message with the provided details under metric type “EXTERNAL”.
 
 ---
 
-## Components and Endpoints
+## Components and Data Models
 
-### 1. Agent Registration API
-
-- **Endpoint:** `/api/agent/register`
-- **Purpose:** Register a new agent or update an existing agent's details.
-- **Data Model:**
+### ApiClient Model
 
 ```java
-public class AgentInfo {
-    private String hostname;
-    private String ip;
-    private List<Integer> openPorts;
-    private long timestamp;
-    private int agentPort;
+public class ApiClient {
+    private String id;
+    private String appName;
+    private String apiKey;
+    private long createdAt;
+    private String createdAtHuman;
 }
 ```
 
-- **Flow:**  
-  The controller receives a JSON payload, processes it via a service that checks if an agent with the same IP and hostname exists. If found, it updates the record; otherwise, it creates a new record in the `agents` collection.
-
-### 2. Metrics API
-
-- **Endpoint:** `/api/metrics`
-- **Purpose:** Receive system metrics from agents.
-- **Data Model:**
+### CreateApiKeyRequest DTO
 
 ```java
-public class Metrics {
-    private String hostname;
-    private String ip;
-    private long timestamp;
-    private double cpuUsage;
-    private double diskUsage;
-    private double ramUsage;
+public class CreateApiKeyRequest {
+    @NotBlank
+    private String appName;
 }
 ```
 
-- **Flow:**  
-  The controller receives the JSON metrics payload, saves it into MongoDB, and invokes the alert service to check for critical thresholds and send alerts via Telegram if necessary.
-
-### 3. Alerting System
-
-- **Alerts Storage:** Alerts are stored in the `alerts` collection.
-- **Data Model:**
+### CustomAlertRequest DTO
 
 ```java
-public class Alert {
-    private String hostname;
-    private String ip;
-    private String metricType; // e.g., "CPU", "Disk", "RAM", "PORT"
-    private Integer port;      // Only for PORT alerts
-    private long timestamp;
+public class CustomAlertRequest {
+    @NotBlank private String appName;
+    @NotBlank private String apiKey;
+    @NotBlank private String executionDate;
+    @NotBlank private String application;
+    private String log;
 }
 ```
-
-- **Logic:**  
-  For each metric, the server checks if an alert has been sent in the last 24 hours for the same IP–metricType pair. If not, it sends a Telegram alert and saves the alert record.
-
-### 4. Scheduled Port Status Job
-
-- **Class:** `PortStatusJob`
-- **Schedule:** Runs every 5 minutes.
-- **Functionality:**
-  - Retrieves all registered agents from the `agents` collection.
-  - For each agent, iterates through the list of open ports.
-  - Uses a TCP connection attempt to verify if each port is open.
-  - For any port that is down, it checks the `alerts` collection for a recent alert (last 24 hours) for that IP and port with metric type “PORT”.
-  - If no recent alert is found, sends a Telegram alert and records the alert.
-
-- **Locking Mechanism:**  
-  The job uses a static final UUID (`JOB_UUID`) as its lock identifier. At the start, it checks if a lock with this UUID exists in the `jobLocks` collection. If it does, the job is skipped. Otherwise, the lock is created, the job runs, and finally the lock is removed.
-
-### 5. Job Lock Data Model
-
-- **Data Model:**
-
-```java
-public class JobLock {
-    private String id;      // Set to JOB_UUID
-    private String jobName; // e.g., "PortStatusJob"
-    private String lockId;  // Also JOB_UUID
-    private long timestamp;
-}
-```
-
-- **Repository:**  
-  The repository supports finding a lock by its ID and deleting it after job execution.
 
 ---
 
 ## Configuration
 
-### MongoDB
+### MongoDB Collections
 
-- **Database:** `telemetrydb`
-- **Collections:**
-  - `metrics` for system metrics.
-  - `agents` for registered agents.
-  - `alerts` for alert records.
-  - `jobLocks` for job execution locks.
+- `agents`, `metrics`, `alerts`, `jobLocks`, `thresholds`, `apiClients`
 
-### Telegram
+### Swagger / OpenAPI
 
-Configure the following properties in `application.properties` or `application.yml`:
+Add to `pom.xml`:
 
-```
-telegram.bot.token=your_bot_token_here
-telegram.chat.id=your_chat_id_here
+```xml
+<dependency>
+  <groupId>org.springdoc</groupId>
+  <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+  <version>2.1.0</version>
+</dependency>
 ```
 
-### Scheduling
-
-Ensure that scheduling is enabled in your main application class:
-
-```java
-@SpringBootApplication
-@EnableScheduling
-public class ServerApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(ServerApplication.class, args);
-    }
-}
-```
-
-## Telegram Bot Configuration
-
-Follow these steps to configure and verify your Telegram bot integration:
-
-### 1. Create a Bot with BotFather
-
-1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather).  
-2. Send `/newbot` and follow prompts to choose:
-   - **Bot name** (e.g. “CheetahMonitorBot”)
-   - **Username** (must end in “bot”, e.g. “CheetahMonitorBot”)
-3. BotFather will reply with a **bot token**. Copy this—you’ll need it below.
-
-### 2. Add Your Bot Token to Application Properties
-
-In your `application.properties` (or `application.yml`), add:
-
-```properties
-# Telegram bot token from BotFather
-telegram.bot.token=YOUR_BOT_TOKEN_HERE
-
-# Telegram chat ID to receive alerts
-telegram.chat.id=YOUR_CHAT_ID_HERE
-
-# (Optional) Descriptions for slash commands
-telegram.commands.status.description=Get current metrics for a host.
-telegram.commands.ports.description=Get open ports for a host.
-telegram.commands.help.description=Show help and usage.
-
-Tip: To find your Chat ID, send a message to your bot, then visit:
-
-https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
-
-Look for "chat":{"id":...} in the JSON response.
-
-3. Register Bot Commands on Startup
-
-Our code uses setMyCommands to register slash commands (/status, /ports, /help) automatically at application startup. No extra configuration is required.
-
-4. Expose a Webhook Endpoint
-
-You need to expose a public URL for Telegram to POST updates. In application.properties add:
-
-# Path where your app listens for Telegram updates
-telegram.webhook.path=/api/telegram/webhook
-
-Ensure your server is reachable at:
-
-https://YOUR_PUBLIC_DOMAIN/api/telegram/webhook
-
-Then register the webhook with BotFather or via curl:
-
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -d "url=https://YOUR_PUBLIC_DOMAIN/api/telegram/webhook"
-
-5. Verify Your Bot
-	1.	Start your application.
-	2.	Open Telegram and send one of your commands:
-	•	/status <hostname>
-	•	/ports <hostname>
-	•	/help
-	3.	The bot should reply with the requested information.
-
-⸻
-
-That’s it! Your Telegram bot is now configured to receive slash commands and forward them to your Spring Boot application for processing.
+Once running, access:  
+- **OpenAPI JSON:** `GET /v3/api-docs`  
+- **Swagger UI:** `/swagger-ui.html`
 
 ---
 
-## Conclusion
+## Deployment and Build
 
-The monitoring server is designed to:
+### Environment Variables (Agent)
 
-- **Register Agents:**  
-  Accept registration from agents and update their information as needed.
+- `PORTS`, `MONITORING_SERVER_HOST`, `MONITORING_SERVER_PORT`, `SEND_INTERVAL`
 
-- **Store Metrics:**  
-  Save incoming metrics and trigger alerts for critical conditions (CPU, Disk, RAM) with a 24-hour alert window to avoid duplicates.
+### Telegram Properties
 
-- **Scheduled Port Verification:**  
-  Periodically verify the health of reported open ports for each agent. If a port is down, an alert is sent via Telegram, and duplicate alerts for the same port are suppressed for 24 hours using the alert history.
+```properties
+telegram.bot.token=YOUR_TOKEN
+telegram.chat.id=YOUR_CHAT_ID
+telegram.webhook.path=/api/telegram/webhook
+telegram.commands.status.description=Get current metrics for a host.
+telegram.commands.ports.description=Get open ports for a host.
+telegram.commands.list.description=List all monitored hosts.
+telegram.commands.help.description=Show this help message.
+```
 
-- **Locking Mechanism for Jobs:**  
-  Use a persistent job lock (stored in `jobLocks`) with a static final UUID to prevent concurrent or redundant job executions, ensuring that the scheduled job runs only once per cycle and cleans up its lock after execution.
+### GitHub Actions for Maven Release
 
-This design ensures robustness, scalability, and timely alerting, making the monitoring system reliable even as the number of monitored agents increases.
+Workflow triggers on `push` to `main`, skips if commit message contains `[maven-release-plugin]`, uses Java 21, SSH agent, and deploys to GitHub Packages.
 
-Feel free to reach out if you need further clarifications or additional features.
+---
+
+## Summary
+
+- **Registration & Metrics:** Agents register and send metrics.  
+- **Dynamic Thresholds:** Managed via MongoDB with REST API.  
+- **Port & Agent Health:** Scheduled checks with alert suppression.  
+- **Telegram Bot Commands:** `/status`, `/status *`, `/ports`, `/list`, `/help`.  
+- **External Alerts API:** Secure custom alerts with API keys.  
+- **Swagger UI:** Interactive API docs.
+
+For further details or customizations, refer to the source code or contact the maintainer.
